@@ -15,10 +15,44 @@ cache:   # gradle을 통해 의존성을 받게 되면 이를 해당 디렉토�
 
 before_install:  # 모든 사용자한테 gradlew에 대한 접근권한을 풀어준다.
   - chmod +x gradlew
+#
+before_deploy:    # deploy 명령어가 실행되기 전 실행 / CodeDeploy는 Jar 파일은 인식하지 못하므로 Jar+기타 설정 파일들을 모아 압축(zip)
+  #  - zip -r freelec-springboot2-webservice *  # 현재위치의 모든 파일을 압축
+  #  - mkdir -p deploy   # Travis CI가 실행 중인 위치에서 생성
+  #  - mv freelec-springboot2-webservice.zip deploy/freelec-springboot2-webservice.zip   # deploy 디렉토리로 zip파일 이동
+  - mkdir -p before-deploy # zip에 포함시킬 파일들을 담을 디렉토리 생성 중 / Travis CI는 S3로 특정파일만 업로드가 안되니 deploy 디렉토리 항상 생성하자.
+  - cp scripts/*.sh before-deploy/
+  - cp appspec.yml before-deploy/
+  - cp build/libs/*.jar before-deploy/
+  - cd before-deploy && zip -r before-deploy *
+  - cd ../ && mkdir -p deploy
+  - mv before-deploy/before-deploy.zip deploy/freelec-springboot2-webservice.zip
+
+deploy: # S3로 파일 업로드 혹은 CodeDeploy로 배포 등 외부 서비스와 연동될 행위들을 선언한다.
+  - provider: s3
+    access_key_id: $AWS_ACCESS_KEY  # Travice repo settings에 설정된 값.
+    secret_access_key: $AWS_SECRET_KEY # Travice repo settings에 설정된 값.
+    bucket: freelec-springboot-build3 # S3버킷
+    region: ap-northeast-2
+    skip_cleanup: true
+    acl: private # zip 파일접근을 private으로
+    local_dir: deploy # before_deploy에서 생성한 디렉토리. 해당 위치의 파일들만 S3로 저장한다.
+    wait-until-deployed: true
+  #
+  - provider: codedeploy
+    access_key_id: $AWS_ACCESS_KEY    # 해당키의 사용자권한으로 codedeploy에 대한 접근 권한이 포함되는걸로 추측이 됨.
+    secret_access_key: $AWS_SECRET_KEY
+    bucket: freelec-springboot-build3  # S3 버킷
+    key : freelec-springboot2-webservice.zip  # 빌드 파일을 압축해서 전달
+    bundle-type: zip   # 압축확장자
+    application: freelec-springboot2-webservice  # 웹 콘솔에서 등록한 CodeDeploy 애플리케이션
+    deployment-group: freelec-springboot2-webservice-group  # 웹 콘솔에서 등록한 CodeDeploy 애플리케이션
+    region: ap-northeast-2
+    wait-until-deployed: true
 
 script: "./gradlew clean build"  # master 브랜치에 push 순간 수행 할 명령어. 프로젝트 내부에 둔 gradlew을 통해 clean & build를 수행
 
-# CI 실행 완료시 자동으로 메일로 알람aa
+# CI 실행 완료시 자동으로 메일로 알람
 notifications:
   email:
     recipients:
