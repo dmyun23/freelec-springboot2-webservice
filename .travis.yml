@@ -18,7 +18,7 @@ before_install:  # 모든 사용자한테 gradlew에 대한 접근권한을 풀�
 
 script: "./gradlew clean build"  # master 브랜치에 push 순간 수행 할 명령어. 프로젝트 내부에 둔 gradlew을 통해 clean & build를 수행
 
-# CI 실행 완료시 자동으로 메일로 알람
+# CI 실행 완료시 자동으로 메일로 알람aa
 notifications:
   email:
     recipients:
